@@ -1,0 +1,14 @@
+{
+  "name": "wamr-binding",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Xu Jun",
+  "license": "ISC",
+  "devDependencies": {
+    "node-addon-api": "^4.0.0"
+  }
+}
