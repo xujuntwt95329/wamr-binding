@@ -1,5 +1,5 @@
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.8)
 
 project(wamr-binding)
 
