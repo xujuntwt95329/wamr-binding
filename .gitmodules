@@ -1,0 +1,3 @@
+[submodule "deps/wamr"]
+	path = deps/wamr
+	url = https://github.com/intel/wasm-micro-runtime.git
