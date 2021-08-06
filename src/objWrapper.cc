@@ -10,7 +10,9 @@ Napi::Object WAMRRuntime::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod<&WAMRRuntime::load>("load"),
         InstanceMethod<&WAMRRuntime::instantiate>("instantiate"),
         InstanceMethod<&WAMRRuntime::lookupFunction>("lookupFunction"),
-        InstanceMethod<&WAMRRuntime::executeFunction>("executeFunction")
+        InstanceMethod<&WAMRRuntime::executeFunction>("executeFunction"),
+        InstanceMethod<&WAMRRuntime::deinstantiate>("deinstantiate"),
+        InstanceMethod<&WAMRRuntime::unload>("unload")
     });
 
     constructor_ = Napi::Persistent(func);
@@ -152,13 +154,33 @@ static wasm_val_t jsValueToWasmValue(const Napi::Number jsValue, wasm_valtype_t 
     }
 }
 
+static double wasmValueToDouble(wasm_val_t wasmValue, wasm_valtype_t *varType) {
+    switch (wasm_valtype_kind(varType)) {
+        case WASM_I32:
+            return (double)wasmValue.of.i32;
+        break;
+        case WASM_I64:
+            return (double)wasmValue.of.i64;
+        break;
+        case WASM_F32:
+            return (double)wasmValue.of.f32;
+        break;
+        case WASM_F64:
+            return (double)wasmValue.of.f64;
+        break;
+        default:
+
+        break;
+    }
+}
+
 Napi::Value WAMRRuntime::executeFunction(const Napi::CallbackInfo& info) {
     napi_status status;
     Napi::Env env = info.Env();
     wasm_func_t *func = nullptr;
 
-    if (info.Length() < 1) {
-        Napi::Error::New(info.Env(), "At least onw argument expected")
+    if (info.Length() != 2) {
+        Napi::Error::New(info.Env(), "Expected exactly two argument")
             .ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
@@ -170,9 +192,21 @@ Napi::Value WAMRRuntime::executeFunction(const Napi::CallbackInfo& info) {
     }
 
     func = WAMRFunction::Extract(info[0]);
+    size_t expect_param_size = wasm_func_param_arity(func);
 
-    if (info.Length() - 1 < wasm_func_param_arity(func)) {
-        Napi::Error::New(info.Env(), "Missing argument for wasm function")
+    if (!info[1].IsArray()) {
+        Napi::Error::New(info.Env(), "The arguments must be an array")
+            .ThrowAsJavaScriptException();
+        return info.Env().Undefined();
+    }
+
+    Napi::Array jsArgArray = info[1].As<Napi::Array>();
+
+    if (jsArgArray.Length() != expect_param_size) {
+        char msg[128];
+        sprintf(msg, "argument count not match, %ld expected, %d passed\n",
+                expect_param_size, jsArgArray.Length());
+        Napi::Error::New(info.Env(), msg)
             .ThrowAsJavaScriptException();
         return info.Env().Undefined();
     }
@@ -184,19 +218,75 @@ Napi::Value WAMRRuntime::executeFunction(const Napi::CallbackInfo& info) {
     std::vector<wasm_val_t> args;
     std::vector<wasm_val_t> results;
 
-    for (size_t i = 0; i < wasm_func_param_arity(func); i++) {
-        Napi::Number jsValue = info[i + 1].As<Napi::Number>();
+    for (size_t i = 0; i < expect_param_size; i++) {
+        Napi::Number jsValue = Napi::Value(jsArgArray[i]).ToNumber();
         args.push_back(jsValueToWasmValue(jsValue, param_types->data[i]));
     }
 
-    for (size_t i = 0; i < wasm_func_param_arity(func); i++) {
+    for (size_t i = 0; i < wasm_func_result_arity(func); i++) {
         results.push_back(WASM_INIT_VAL);
     }
 
     wasm_func_call(func, args.data(), results.data());
 
+    auto jsResults = Napi::Array::New(env, results.size());
+    for (size_t i = 0; i < results.size(); i++) {
+        jsResults[i] =
+            Napi::Number::New(env, wasmValueToDouble(results[i], result_types->data[i]));
+    }
+
+    return jsResults;
+}
+
+Napi::Value WAMRRuntime::deinstantiate(const Napi::CallbackInfo& info) {
+    wasm_instance_t* instance = nullptr;
+
+    if (info.Length() != 1) {
+        Napi::Error::New(info.Env(), "Expected exactly one argument")
+            .ThrowAsJavaScriptException();
+        return info.Env().Undefined();
+    }
+
+    if (!WAMRInstance::IsClassOf(info[0])) {
+        Napi::Error::New(info.Env(), "Expect WAMRInstance object")
+            .ThrowAsJavaScriptException();
+        return info.Env().Undefined();
+    }
+
+    instance = WAMRInstance::Extract(info[0]);
+
+    wasm_instance_delete(instance);
+
     return info.Env().Undefined();
 }
+
+Napi::Value WAMRRuntime::unload(const Napi::CallbackInfo& info) {
+    wasm_module_t* module = nullptr;
+
+    if (info.Length() != 1) {
+        Napi::Error::New(info.Env(), "Expected exactly one argument")
+            .ThrowAsJavaScriptException();
+        return info.Env().Undefined();
+    }
+
+    if (!WAMRModule::IsClassOf(info[0])) {
+        Napi::Error::New(info.Env(), "Expect WAMRModule object")
+            .ThrowAsJavaScriptException();
+        return info.Env().Undefined();
+    }
+
+    module = WAMRModule::Extract(info[0]);
+
+    wasm_module_delete(module);
+
+    return info.Env().Undefined();
+}
+
+void WAMRRuntime::Finalize(Napi::Env env) {
+    wasm_store_delete(store_);
+    wasm_engine_delete(engine_);
+}
+
 
 /* wrapper for wamr module */
 void WAMRModule::Init(Napi::Env env, Napi::Object &exports) {

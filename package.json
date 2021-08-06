@@ -4,11 +4,17 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "preinstall": "git submodule init && git submodule update",
+    "install": "cmake-js compile",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Xu Jun",
   "license": "ISC",
   "devDependencies": {
     "node-addon-api": "^4.0.0"
+  },
+  "dependencies": {
+    "bindings": "^1.5.0",
+    "cmake-js": "^6.2.1"
   }
 }

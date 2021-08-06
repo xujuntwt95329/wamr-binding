@@ -3,29 +3,6 @@
 #include <napi.h>
 #include "wasm_c_api.h"
 
-// class WAMRObject : public Napi::ObjectWrap<WAMRObject> {
-//  public:
-//     static Napi::Object Init(Napi::Env env, Napi::Object exports) {
-//         auto obj = Napi::Object::New(env);
-//         obj["hello"] = "world";
-//     }
-
-//     WAMRObject(const Napi::CallbackInfo& info) : Napi::ObjectWrap<WAMRObject>(info) {
-
-//     }
-
-//     void set_data(void *data) {
-//         data_ = data;
-//     }
-
-//     void *get_data() {
-//         return data_;
-//     }
-
-//     private:
-//     void* data_;
-// };
-
 class WAMRRuntime : public Napi::ObjectWrap<WAMRRuntime> {
 public:
     static inline Napi::FunctionReference constructor_;
@@ -41,6 +18,12 @@ public:
     Napi::Value lookupFunction(const Napi::CallbackInfo& info);
 
     Napi::Value executeFunction(const Napi::CallbackInfo& info);
+
+    Napi::Value deinstantiate(const Napi::CallbackInfo& info);
+
+    Napi::Value unload(const Napi::CallbackInfo& info);
+
+    virtual void Finalize(Napi::Env env);
 
 private:
     wasm_engine_t *engine_;

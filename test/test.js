@@ -1,4 +1,4 @@
-const {wamr} = require('../build/Release/wamr-binding.node')
+const {wamr} = require('..')
 const fs = require('fs')
 
 const wasm_content = fs.readFileSync('./test.wasm')
@@ -11,4 +11,8 @@ let inst = runtime.instantiate(mod);
 
 let func = runtime.lookupFunction(inst, 'main');
 
-runtime.executeFunction(func, 0, 0);
+runtime.executeFunction(func, [0, 0]);
+
+runtime.deinstantiate(inst);
+
+runtime.unload(mod);
