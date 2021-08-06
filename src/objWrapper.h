@@ -28,6 +28,8 @@
 
 class WAMRRuntime : public Napi::ObjectWrap<WAMRRuntime> {
 public:
+    static inline Napi::FunctionReference constructor_;
+
     static Napi::Object Init(Napi::Env env, Napi::Object exports);
 
     WAMRRuntime(const Napi::CallbackInfo& info);

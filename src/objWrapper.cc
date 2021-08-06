@@ -13,6 +13,8 @@ Napi::Object WAMRRuntime::Init(Napi::Env env, Napi::Object exports) {
         InstanceMethod<&WAMRRuntime::executeFunction>("executeFunction")
     });
 
+    constructor_ = Napi::Persistent(func);
+    constructor_.SuppressDestruct();
     exports.Set("wamr", func);
 
     return exports;
@@ -203,6 +205,7 @@ void WAMRModule::Init(Napi::Env env, Napi::Object &exports) {
     });
 
     constructor_ = Napi::Persistent(func);
+    constructor_.SuppressDestruct();
     exports.Set("WAMRModule", func);
 }
 
@@ -234,6 +237,7 @@ void WAMRInstance::Init(Napi::Env env, Napi::Object &exports) {
     });
 
     constructor_ = Napi::Persistent(func);
+    constructor_.SuppressDestruct();
     exports.Set("WAMRInstance", func);
 }
 
@@ -266,6 +270,7 @@ void WAMRFunction::Init(Napi::Env env, Napi::Object &exports) {
     });
 
     constructor_ = Napi::Persistent(func);
+    constructor_.SuppressDestruct();
     exports.Set("WAMRFunction", func);
 }
 
