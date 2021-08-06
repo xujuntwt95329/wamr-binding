@@ -2,6 +2,8 @@
 #include "objWrapper.h"
 #include "errMsg.h"
 
+#include <vector>
+
 /* wrapper for wamr engine */
 Napi::Object WAMRRuntime::Init(Napi::Env env, Napi::Object exports) {
     Napi::Function func = DefineClass(env, "WAMRRuntime", {
@@ -73,6 +75,7 @@ Napi::Value WAMRRuntime::instantiate(const Napi::CallbackInfo& info) {
         wasm_instance_new(store_, module, nullptr, nullptr);
 
     auto instanceObj = WAMRInstance::New(env, instance);
+    instanceObj["module"] = info[0];
 
     return instanceObj;
 }
@@ -80,6 +83,7 @@ Napi::Value WAMRRuntime::instantiate(const Napi::CallbackInfo& info) {
 Napi::Value WAMRRuntime::lookupFunction(const Napi::CallbackInfo& info) {
     napi_status status;
     Napi::Env env = info.Env();
+    wasm_module_t* module = nullptr;
     wasm_instance_t* instance = nullptr;
 
     if (info.Length() != 2) {
@@ -95,24 +99,101 @@ Napi::Value WAMRRuntime::lookupFunction(const Napi::CallbackInfo& info) {
     }
 
     instance = WAMRInstance::Extract(info[0]);
+    module = WAMRModule::Extract(info[0].As<Napi::Object>().Get("module"));
+
+    const char *func_name = std::string(info[1].As<Napi::String>()).c_str();
+
+    wasm_exporttype_vec_t exporttypes = {0};
+    unsigned int export_item_idx = -1;
+
+    wasm_module_exports(module, &exporttypes);
+    for (unsigned int i = 0; i < exporttypes.num_elems; i++) {
+        wasm_exporttype_t *exporttype = exporttypes.data[i];
+        if (strncmp(func_name, (const char*)(wasm_exporttype_name(exporttype)->data), strlen(func_name)) == 0) {
+            export_item_idx = i;
+            break;
+        }
+    }
+
+    if (export_item_idx == -1) {
+        return info.Env().Undefined();
+    }
 
     wasm_extern_vec_t exports;
     wasm_instance_exports(instance, &exports);
 
-    wasm_func_t *func = wasm_extern_as_func(exports.data[1]);
+    wasm_func_t *func = wasm_extern_as_func(exports.data[export_item_idx]);
 
-    auto func_ref = Napi::Object::New(env);
+    auto functionObj = WAMRFunction::New(env, func);
+    functionObj["instance"] = info[0];
 
-    status = napi_wrap(napi_env(env),
-                        napi_value(func_ref),
-                        func, NULL, NULL, NULL);
-    if (status != napi_ok) return env.Undefined();
+    return functionObj;
+}
 
-    wasm_val_t args[2] = { WASM_I32_VAL(3), WASM_I32_VAL(4) };
-    wasm_val_t results[1] = { WASM_INIT_VAL };
-    wasm_func_call(func, args, results);
+static wasm_val_t jsValueToWasmValue(const Napi::Number jsValue, wasm_valtype_t *varType) {
+    switch (wasm_valtype_kind(varType)) {
+        case WASM_I32:
+            return WASM_I32_VAL(int32_t(jsValue));
+        break;
+        case WASM_I64:
+            return WASM_I64_VAL(int64_t(jsValue));
+        break;
+        case WASM_F32:
+            return WASM_F32_VAL(float(jsValue));
+        break;
+        case WASM_F64:
+            return WASM_F64_VAL(double(jsValue));
+        break;
+        default:
 
-    return func_ref;
+        break;
+    }
+}
+
+Napi::Value WAMRRuntime::executeFunction(const Napi::CallbackInfo& info) {
+    napi_status status;
+    Napi::Env env = info.Env();
+    wasm_func_t *func = nullptr;
+
+    if (info.Length() < 1) {
+        Napi::Error::New(info.Env(), "At least onw argument expected")
+            .ThrowAsJavaScriptException();
+        return info.Env().Undefined();
+    }
+
+    if (!WAMRFunction::IsClassOf(info[0])) {
+        Napi::Error::New(info.Env(), "Expect WAMRFunction object")
+            .ThrowAsJavaScriptException();
+        return info.Env().Undefined();
+    }
+
+    func = WAMRFunction::Extract(info[0]);
+
+    if (info.Length() - 1 < wasm_func_param_arity(func)) {
+        Napi::Error::New(info.Env(), "Missing argument for wasm function")
+            .ThrowAsJavaScriptException();
+        return info.Env().Undefined();
+    }
+
+    wasm_functype_t *func_type = wasm_func_type(func);
+    const wasm_valtype_vec_t *param_types = wasm_functype_params(func_type);
+    const wasm_valtype_vec_t *result_types = wasm_functype_results(func_type);
+
+    std::vector<wasm_val_t> args;
+    std::vector<wasm_val_t> results;
+
+    for (size_t i = 0; i < wasm_func_param_arity(func); i++) {
+        Napi::Number jsValue = info[i + 1].As<Napi::Number>();
+        args.push_back(jsValueToWasmValue(jsValue, param_types->data[i]));
+    }
+
+    for (size_t i = 0; i < wasm_func_param_arity(func); i++) {
+        results.push_back(WASM_INIT_VAL);
+    }
+
+    wasm_func_call(func, args.data(), results.data());
+
+    return info.Env().Undefined();
 }
 
 /* wrapper for wamr module */
@@ -175,4 +256,36 @@ WAMRInstance::WAMRInstance(const Napi::CallbackInfo& info) : ObjectWrap(info) {
     }
     auto external = info[0].As<Napi::External<wasm_instance_t>>();
     instance_ = external.Data();
+}
+
+
+/* wrapper for wamr function instance */
+void WAMRFunction::Init(Napi::Env env, Napi::Object &exports) {
+    Napi::Function func = DefineClass(env, "WAMRFunction", {
+
+    });
+
+    constructor_ = Napi::Persistent(func);
+    exports.Set("WAMRFunction", func);
+}
+
+Napi::Object WAMRFunction::New(Napi::Env env, wasm_func_t *func) {
+    return constructor_.New({Napi::External<wasm_func_t>::New(env, func)});
+}
+
+bool WAMRFunction::IsClassOf(const Napi::Value &value) {
+    return value.As<Napi::Object>().InstanceOf(constructor_.Value());
+}
+
+wasm_func_t *WAMRFunction::Extract(const Napi::Value &value) {
+    return Unwrap(value.As<Napi::Object>())->function_;
+}
+
+WAMRFunction::WAMRFunction(const Napi::CallbackInfo& info) : ObjectWrap(info) {
+    Napi::Env env = info.Env();
+    if (!info.IsConstructCall() || info.Length() == 0 || !info[0].IsExternal()) {
+        throw Napi::TypeError::New(env, ErrMsg::Class::WAMRFunction::constructor);
+    }
+    auto external = info[0].As<Napi::External<wasm_func_t>>();
+    function_ = external.Data();
 }

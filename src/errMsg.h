@@ -8,5 +8,9 @@ namespace ErrMsg {
         namespace WAMRInstance {
             static const char *constructor = "WAMRInstance.constructor needs to be called with new (external: Napi::External<wasm_instance_t>)";
         }
+
+        namespace WAMRFunction {
+            static const char *constructor = "WAMRFunction.constructor needs to be called with new (external: Napi::External<wasm_func_t>)";
+        }
     }
 }

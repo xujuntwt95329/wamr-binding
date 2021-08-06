@@ -38,9 +38,7 @@ public:
 
     Napi::Value lookupFunction(const Napi::CallbackInfo& info);
 
-    Napi::Value executeFunction(const Napi::CallbackInfo& info) {
-
-    }
+    Napi::Value executeFunction(const Napi::CallbackInfo& info);
 
 private:
     wasm_engine_t *engine_;
@@ -85,4 +83,24 @@ public:
 
 private:
     wasm_instance_t *instance_;
+};
+
+class WAMRFunction : public Napi::ObjectWrap<WAMRFunction> {
+public:
+    static inline Napi::FunctionReference constructor_;
+
+    static void Init(Napi::Env, Napi::Object &exports);
+
+    static Napi::Object New(Napi::Env env, wasm_func_t *instance);
+
+    static bool IsClassOf(const Napi::Value &value);
+
+    static wasm_func_t *Extract(const Napi::Value &value);
+
+    explicit WAMRFunction(const Napi::CallbackInfo& info);
+
+    wasm_func_t *getWAMRFunction();
+
+private:
+    wasm_func_t *function_;
 };
