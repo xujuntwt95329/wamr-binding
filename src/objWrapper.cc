@@ -52,6 +52,7 @@ Napi::Value WAMRRuntime::load(const Napi::CallbackInfo& info) {
     wasm_module_t* module = wasm_module_new(store_, &binary);
 
     auto moduleObj = WAMRModule::New(env, module);
+    Unwrap(moduleObj)->Decorate(moduleObj);
 
     return moduleObj;
 }
@@ -80,6 +81,7 @@ Napi::Value WAMRRuntime::instantiate(const Napi::CallbackInfo& info) {
 
     auto instanceObj = WAMRInstance::New(env, instance);
     instanceObj["module"] = info[0];
+    Unwrap(instanceObj)->Decorate(instanceObj);
 
     return instanceObj;
 }

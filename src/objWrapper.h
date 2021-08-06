@@ -2,8 +2,9 @@
 
 #include <napi.h>
 #include "wasm_c_api.h"
+#include "objDecorator.h"
 
-class WAMRRuntime : public Napi::ObjectWrap<WAMRRuntime> {
+class WAMRRuntime : public Napi::ObjectWrap<WAMRRuntime>, public objDecorator {
 public:
     static inline Napi::FunctionReference constructor_;
 
@@ -30,7 +31,7 @@ private:
     wasm_store_t *store_;
 };
 
-class WAMRModule : public Napi::ObjectWrap<WAMRModule> {
+class WAMRModule : public Napi::ObjectWrap<WAMRModule>, public objDecorator {
 public:
     static inline Napi::FunctionReference constructor_;
 
@@ -46,11 +47,13 @@ public:
 
     wasm_module_t *getWAMRModule();
 
+    virtual void Decorate(Napi::Object obj);
+
 private:
     wasm_module_t *module_;
 };
 
-class WAMRInstance : public Napi::ObjectWrap<WAMRInstance> {
+class WAMRInstance : public Napi::ObjectWrap<WAMRInstance>, public objDecorator {
 public:
     static inline Napi::FunctionReference constructor_;
 
@@ -66,11 +69,13 @@ public:
 
     wasm_instance_t *getWAMRInstance();
 
+    virtual void Decorate(Napi::Object obj);
+
 private:
     wasm_instance_t *instance_;
 };
 
-class WAMRFunction : public Napi::ObjectWrap<WAMRFunction> {
+class WAMRFunction : public Napi::ObjectWrap<WAMRFunction>, public objDecorator {
 public:
     static inline Napi::FunctionReference constructor_;
 
