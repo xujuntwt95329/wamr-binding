@@ -47,10 +47,12 @@ public:
 
     wasm_module_t *getWAMRModule();
 
-    virtual void Decorate(Napi::Object obj);
+    virtual void Decorate(Napi::Env env, Napi::Object obj);
 
 private:
     wasm_module_t *module_;
+
+    Napi::Value getType(const Napi::CallbackInfo& info);
 };
 
 class WAMRInstance : public Napi::ObjectWrap<WAMRInstance>, public objDecorator {
@@ -69,7 +71,7 @@ public:
 
     wasm_instance_t *getWAMRInstance();
 
-    virtual void Decorate(Napi::Object obj);
+    virtual void Decorate(Napi::Env env, Napi::Object obj);
 
 private:
     wasm_instance_t *instance_;

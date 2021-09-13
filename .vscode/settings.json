@@ -55,6 +55,7 @@
         "streambuf": "cpp",
         "thread": "cpp",
         "typeinfo": "cpp",
-        "wasm_runtime_common.h": "c"
+        "wasm_runtime_common.h": "c",
+        "wasm_exec_env.h": "c"
     }
 }

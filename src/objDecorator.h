@@ -6,7 +6,7 @@ class objDecorator
 private:
 
 protected:
-    virtual void Decorate(Napi::Object obj) {};
+    virtual void Decorate(Napi::Env env, Napi::Object obj) {};
 
 public:
     objDecorator() { };
