@@ -28,6 +28,31 @@ void WAMRModule::Decorate(Napi::Env env, Napi::Object obj) {
 
     if (module_type == Wasm_Module_Bytecode) {
         auto wasm_module = reinterpret_cast<WASMModule *>(*module_);
+
+        auto export_array = Napi::Array::New(env);
+        for (int i = 0; i < wasm_module->export_count; i++) {
+            auto cur_export = Napi::Object::New(env);
+            cur_export["name"] = Napi::String::New(env, wasm_module->exports[i].name);
+
+            switch (wasm_module->exports[i].kind) {
+                case EXPORT_KIND_FUNC:
+                    cur_export["type"] = Napi::String::New(env, "Function");
+                break;
+                case EXPORT_KIND_TABLE:
+                    cur_export["type"] = Napi::String::New(env, "Table");
+                break;
+                case EXPORT_KIND_MEMORY:
+                    cur_export["type"] = Napi::String::New(env, "Memory");
+                break;
+                case EXPORT_KIND_GLOBAL:
+                    cur_export["type"] = Napi::String::New(env, "Global");
+                break;
+            }
+
+            export_array[i] = cur_export;
+        }
+
+        obj["exports"] = export_array;
     }
     else if (module_type == Wasm_Module_AoT) {
         auto aot_module = reinterpret_cast<AOTModule *>(*module_);
